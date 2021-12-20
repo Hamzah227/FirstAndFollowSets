@@ -5,12 +5,13 @@ using System.Text;
 
 namespace FirstAndFollow
 {
-    class Sets
+    public class Sets
     {
         string EPSILON = "ε";
         List<string> forFirstSet;
         List<string> forFollowSet;
         List<string> NonTerminals;
+        List<string> Terminals;
         string following = string.Empty;
         string START_SYMBOL = string.Empty;
         readonly IDictionary<string, List<string>> Grammar;
@@ -24,7 +25,7 @@ namespace FirstAndFollow
             START_SYMBOL = Grammar.First().Key;
             NonTerminals = Grammar.Keys.ToList();
         }
-        public void FirstSets()
+        public Dictionary<string, List<string>> FirstSets()
         {
 
             foreach (string item in NonTerminals)
@@ -38,21 +39,25 @@ namespace FirstAndFollow
             {
                 StringBuilder sb = new StringBuilder();
                 sb.Append(item.Key);
-                sb.Append(" -> { ");
+                sb.Append(" -> [ ");
                 foreach (string value in item.Value)
                 {
                     sb.Append(value + ",");
                 }
                 sb.Length--;
-                sb.Append(" }");
+                sb.Append(" ]");
                 Console.WriteLine(sb.ToString());
                 sb.Clear();
             }
+
+            return firstSets;
         }
-        public void FollowSets()
+        public Dictionary<string, List<string>> FollowSets()
         {
+            int index = 0;
             foreach (string item in Grammar.Keys)
             {
+                index++;
                 following = item;
                 Follow(item);
                 if (START_SYMBOL == item)
@@ -67,15 +72,40 @@ namespace FirstAndFollow
             foreach (var item in followSet)
             {
                 sb = new StringBuilder();
-                sb.Append(item.Key + " -> { ");
-                foreach (var values in item.Value)
+                sb.Append(item.Key + " -> [ ");                
+                foreach (var values in item.Value.Distinct())
                 {
                     sb.Append(values + " ,");
                 }
                 sb.Length--;
-                sb.Append(" }");
+                sb.Append(" ]");
                 Console.WriteLine(sb.ToString());
             }
+            return followSet;
+        }
+        public IDictionary<string, List<string>> GetGrammar()
+        {
+            return Grammar;
+        }
+        public List<string> GetNonTerminals()
+        {
+            return NonTerminals;
+        }
+        public List<string> GetTerminals()
+        {
+            Terminals = new List<string>();
+            foreach (var item in Grammar)
+            {
+                for (int i = 0; i < item.Value.Count; i++)
+                {
+                    if (isTerminal(item.Value[i]))
+                    {
+                        Terminals.Add(item.Value[i]);
+                    }
+                }
+            }
+            Terminals.RemoveAll(x => x == "|");
+            return Terminals;
         }
         void FollowFirst(string s)
         {
@@ -86,6 +116,7 @@ namespace FirstAndFollow
                 List<string> rightSide = null;
                 if (Grammar.TryGetValue(s, out rightSide))
                 {
+                    CheckAgain:
                     if (isTerminal(rightSide[0]))
                     {
                         forFirstSet.Add(rightSide[0]);
@@ -99,9 +130,15 @@ namespace FirstAndFollow
                             {
                                 forFirstSet.Add(newRight[0]);
                             }
+                            else if (isNonTerminal(newRight[0]))
+                            {
+                                rightSide = newRight;
+                                goto CheckAgain;
+                            }
+                            
                         }
                     }
-                    else 
+                    else if(isNonTerminal(rightSide[0])) 
                     {
                         FollowFirst(rightSide[0]);
                     }   
@@ -114,6 +151,7 @@ namespace FirstAndFollow
         }
         void Follow(string s)
         {
+            int i = 0;
             bool isFound = false;
             forFollowSet = new List<string>();
             try
@@ -129,6 +167,7 @@ namespace FirstAndFollow
                             if (item.Value.IndexOf(value) == item.Value.Count - 1)
                             {
                                 Follow(item.Key);
+                                break;
                             }
                             else
                             {
@@ -138,6 +177,7 @@ namespace FirstAndFollow
                         }
                         else if (isFound)
                         {
+                            isFound = false;
                             if (value == "|")
                             {
                                 continue;
@@ -163,6 +203,18 @@ namespace FirstAndFollow
                             }
                             break;
                         }
+                        else if (value == "|")
+                        {
+                            continue;
+                        }
+                        else if (isEpsilon(value))
+                        {
+                            forFollowSet.Add("$");
+                        }
+                        else if (isTerminal(value) && item.Key == s)
+                        {
+                            forFollowSet.Add(value);
+                        } 
                     }
                 }
             }
